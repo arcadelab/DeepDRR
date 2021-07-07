@@ -25,6 +25,7 @@ from .. import vol
 from ..device import MobileCArm
 from .. import utils
 
+import time # for time.perf_counter()
 
 logger = logging.getLogger(__name__)
 
@@ -217,6 +218,8 @@ class Projector(object):
         
         logger.info("Initiating projection and attenuation...")
 
+        project_tick = time.perf_counter()
+
         intensities = []
         photon_probs = []
         for i, proj in enumerate(camera_projections):
@@ -317,6 +320,9 @@ class Projector(object):
                         self.project_kernel(*args, offset_w, offset_h, block=block, grid=(self.max_block_index, self.max_block_index))
                         context.synchronize() 
 
+            project_tock = time.perf_counter()
+            print(f"projection #{i}: time elapsed after call to kernel: {project_tock - project_tick}")
+
             intensity = np.empty(self.output_shape, dtype=np.float32)
             cuda.memcpy_dtoh(intensity, self.intensity_gpu)
             # transpose the axes, which previously have width on the slow dimension
@@ -328,6 +334,9 @@ class Projector(object):
 
             intensities.append(intensity)
             photon_probs.append(photon_prob)
+            
+            project_tock = time.perf_counter()
+            print(f"projection #{i}: time elapsed after copy from kernel: {project_tock - project_tick}")
 
         images = np.stack(intensities)
         photon_prob = np.stack(photon_probs)
@@ -394,6 +403,9 @@ class Projector(object):
         if self.initialized:
             raise RuntimeError("Close projector before initializing again.")
 
+        print("starting call to Projector.initialize()")
+        init_tick = time.perf_counter()
+
         # allocate and transfer the volume texture to GPU
         self.volumes_gpu = []
         self.volumes_texref = []
@@ -407,6 +419,9 @@ class Projector(object):
             self.volumes_gpu.append(vol_gpu)
             self.volumes_texref.append(vol_texref)
         
+        init_tock = time.perf_counter()
+        print(f"time elapsed after initializing volumes: {init_tock - init_tick}")
+
         # set the (interpolation?) mode
         if self.mode == 'linear':
             for texref in self.volumes_texref:
@@ -438,6 +453,9 @@ class Projector(object):
             
             self.segmentations_gpu.append(seg_for_vol)
             self.segmentations_texref.append(texref)
+        
+        init_tock = time.perf_counter()
+        print(f"time elapsed after initializing segmentations: {init_tock - init_tick}")
 
         if len(self.volumes) > 1:
             # allocate volumes' priority level on the GPU
@@ -477,6 +495,9 @@ class Projector(object):
             self.sourceX_gpu = cuda.mem_alloc(len(self.volumes) * 4)
             self.sourceY_gpu = cuda.mem_alloc(len(self.volumes) * 4)
             self.sourceZ_gpu = cuda.mem_alloc(len(self.volumes) * 4)
+        
+            init_tock = time.perf_counter()
+            print(f"time elapsed after initializing multivolume stuff: {init_tock - init_tick}")
         # 'endif' for multi-volume allocation
 
         # allocate ijk_from_index matrix array on GPU (3x3 array x 4 bytes per float32)
@@ -517,6 +538,10 @@ class Projector(object):
         cuda.memcpy_htod(self.absorption_coef_table_gpu, absorption_coef_table)
         logger.debug(f"size alloc'd for self.absorption_coef_table_gpu: {n_bins * len(self.all_materials) * 4}")
 
+
+        init_tock = time.perf_counter()
+        print(f"time elapsed after finishing initialization: {init_tock - init_tick}")
+        
         # Mark self as initialized.
         self.is_initialized = True
 
