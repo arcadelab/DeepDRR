@@ -1,3 +1,5 @@
+import logging
+
 import deepdrr
 from deepdrr import geo
 from PIL import Image
@@ -33,4 +35,5 @@ def test_multivolume():
 
 
 if __name__ == "__main__":
+    logging.getLogger("deepdrr").setLevel(logging.DEBUG)
     test_multivolume()

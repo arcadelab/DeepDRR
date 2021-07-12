@@ -1,0 +1,8 @@
+flake8
+Sphinx
+pytest
+pydata-sphinx-theme
+sphinxcontrib-httpdomain
+sphinxcontrib-mermaid
+recommonmark
+Pillow
