@@ -556,12 +556,23 @@ extern "C" {
     }
 
     __device__ static void calculate_all_alphas(
-        float minAlpha[NUM_VOLUMES], float maxAlpha[NUM_VOLUMES], int do_trace[NUM_VOLUMES],
-        float *globalMinAlpha, float *globalMaxAlpha, 
-        float rx[NUM_VOLUMES], float ry[NUM_VOLUMES], float rz[NUM_VOLUMES],
-        float sx[NUM_VOLUMES], float sy[NUM_VOLUMES], float sz[NUM_VOLUMES],
-        float gVolumeEdgeMinPointX[NUM_VOLUMES], float gVolumeEdgeMinPointY[NUM_VOLUMES], float gVolumeEdgeMinPointZ[NUM_VOLUMES], 
-        float gVolumeEdgeMaxPointX[NUM_VOLUMES], float gVolumeEdgeMaxPointY[NUM_VOLUMES], float gVolumeEdgeMaxPointZ[NUM_VOLUMES]
+        float *minAlpha, // NUM_VOLUMES values
+	float *maxAlpha, // NUM_VOLUMES values
+	int *do_trace, // NUM_VOLUMES values
+        float *globalMinAlpha, 
+	float *globalMaxAlpha, 
+        float *rx, // NUM_VOLUMES values
+	float *ry, // NUM_VOLUMES values 
+	float *rz, // NUM_VOLUMES values
+        float *sx, // NUM_VOLUMES values
+	float *sy, // NUM_VOLUMES values
+	float *sz, // NUM_VOLUMES values
+        float *gVolumeEdgeMinPointX, // NUM_VOLUMES values
+	float *gVolumeEdgeMinPointY, // NUM_VOLUMES values
+	float *gVolumeEdgeMinPointZ, // NUM_VOLUMES values
+        float *gVolumeEdgeMaxPointX, // NUM_VOLUMES values
+	float *gVolumeEdgeMaxPointY, // NUM_VOLUMES values
+	float *gVolumeEdgeMaxPointZ, // NUM_VOLUMES values
     ) {
         #if NUM_VOLUMES <= 0
         fprintf(stderr, "calculate_all_alphas not supported for NUM_VOLUMES outside [1, 10]"); return;
@@ -707,9 +718,16 @@ extern "C" {
     }
 
     __device__ static void calculate_all_rays(
-        float rx[NUM_VOLUMES], float ry[NUM_VOLUMES], float rz[NUM_VOLUMES], float volume_normalization_factor[NUM_VOLUMES],
-        float u, float v, float rt_kinv_arr[9 * NUM_VOLUMES],
-        float gVoxelElementSizeX[NUM_VOLUMES], float gVoxelElementSizeY[NUM_VOLUMES], float gVoxelElementSizeZ[NUM_VOLUMES]
+        float *rx, // NUM_VOLUMES values
+	float *ry, // NUM_VOLUMES values
+	float *rz, // NUM_VOLUMES values
+	float *volume_normalization_factor, // NUM_VOLUMES values
+        float u, 
+	float v, 
+	float *rt_kinv_arr, // flat array, NUM_VOLUMES x 3 x 3
+        float *gVoxelElementSizeX, // NUM_VOLUMES values 
+	float *gVoxelElementSizeY, // NUM_VOLUMES values
+	float *gVoxelElementSizeZ // NUM_VOLUMES values
     ) {
         #if NUM_VOLUMES <= 0
         fprintf(stderr, "calculate_all_rays not supported for NUM_VOLUMES outside [1, 10]"); return;
@@ -803,9 +821,14 @@ extern "C" {
     }
 
     __device__ static void get_priority_at_alpha(
-        float alpha, int *curr_priority, int *n_vols_at_curr_priority,
-        float minAlpha[NUM_VOLUMES], float maxAlpha[NUM_VOLUMES], int do_trace[NUM_VOLUMES],
-        float seg_at_alpha[NUM_VOLUMES][NUM_MATERIALS], int priority[NUM_VOLUMES]
+        float alpha, 
+	int *curr_priority, 
+	int *n_vols_at_curr_priority,
+        float *minAlpha, // NUM_VOLUMES values
+	float *maxAlpha, // NUM_VOLUMES values
+	int *do_trace, // NUM_VOLUMES values
+        float *seg_at_alpha, // 2-d array, NUM_VOLUMES * NUM_MATERIALS
+	int *priority // NUM_VOLUMES values
     ) {
         *curr_priority = NUM_VOLUMES;
         *n_vols_at_curr_priority = 0;
@@ -814,7 +837,7 @@ extern "C" {
             if ((alpha < minAlpha[i]) || (alpha > maxAlpha[i])) { continue; }
             float any_seg = 0.0f;
             for (int m = 0; m < NUM_MATERIALS; m++) {
-                any_seg += seg_at_alpha[i][m];
+                any_seg += seg_at_alpha[(i * NUM_MATERIALS) + m];
                 if (any_seg > 0.0f) { break; }
             }
             if (0.0f == any_seg) { continue; }
@@ -873,6 +896,9 @@ extern "C" {
         //
         int udx = threadIdx.x + (blockIdx.x + offsetW) * blockDim.x; // index into output image width
         int vdx = threadIdx.y + (blockIdx.y + offsetH) * blockDim.y; // index into output image height
+
+	int on_kwire = (udx == 434) && (vdx == 1018);
+	int off_kwire = (udx == 1175) && (vdx == 1237);
 
         // if the current point is outside the output image, no computation needed
         if (udx >= out_width || vdx >= out_height)
